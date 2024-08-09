@@ -1,0 +1,42 @@
+networks:
+  network:
+    name: ${PROJECT_NAME}_network
+
+services:
+  redis:
+    container_name: ${PROJECT_NAME}-redis
+    image: redis:7.4-alpine
+    networks:
+      - network
+    expose:
+      - ${REDIS_PORT}
+    volumes:
+      - redis_data:/var/lib/redis/data/
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+    restart: unless-stopped
+
+  asgi:
+    container_name: ${PROJECT_NAME}-asgi
+    build:
+      context: ./src/
+      dockerfile: Dockerfile.local
+    env_file:
+      - .env
+    volumes:
+      - ./src/:/apps/
+      - ${STATIC_PATH}:/static
+      - ${MEDIA_PATH}:/media
+      - ${LOG_PATH}:/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "${ASGI_PORT}:${ASGI_PORT}"
+    networks:
+      - network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    name: ${PROJECT_NAME}_redis_data
